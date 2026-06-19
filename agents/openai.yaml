@@ -1,0 +1,4 @@
+interface:
+  display_name: "医学图谱中文标注"
+  short_description: "翻译医学图谱英文标注并保持原图布局、引线对应和字体风格。"
+  default_prompt: "把医学图谱中的英文标注翻译成中文，保持原图布局、标注线位置、字体风格和医学术语规范。"
