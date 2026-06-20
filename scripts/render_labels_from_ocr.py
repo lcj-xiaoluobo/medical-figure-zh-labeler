@@ -20,11 +20,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-
-import cv2
-import numpy as np
-from PIL import Image, ImageDraw, ImageFont
-
+from typing import Any
 
 ORIENTATION_TEXTS = {
     "Superior",
@@ -41,6 +37,19 @@ ORIENTATION_TEXTS = {
 }
 
 
+def load_image_dependencies():
+    global cv2, np, Image, ImageDraw, ImageFont
+    try:
+        import cv2
+        import numpy as np
+        from PIL import Image, ImageDraw, ImageFont
+    except ImportError as exc:
+        raise SystemExit(
+            "Missing image dependency. Install with: "
+            "python -m pip install pillow numpy opencv-python"
+        ) from exc
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--ocr", required=True, type=Path)
@@ -51,8 +60,15 @@ def parse_args():
 
 def read_rows(path):
     rows = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        fig, width, height, x, y, w, h, text = line.split("\t", 7)
+    for line_no, line in enumerate(path.read_text(encoding="utf-8-sig").splitlines(), 1):
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        fields = line.split("\t", 7)
+        if len(fields) != 8:
+            raise SystemExit(f"Invalid OCR TSV line {line_no}: expected 8 tab-separated fields")
+        fig, width, height, x, y, w, h, text = fields
+        if not text.strip():
+            raise SystemExit(f"Invalid OCR TSV line {line_no}: empty label text")
         rows.append(
             {
                 "fig": fig,
@@ -63,18 +79,66 @@ def read_rows(path):
                 "w": float(w),
                 "h": float(h),
                 "text": text,
+                "line_no": line_no,
             }
         )
+    if not rows:
+        raise SystemExit("OCR TSV contains no label rows")
     return rows
+
+
+def parse_color(value: Any, name: str):
+    if not isinstance(value, list) or len(value) != 3:
+        raise SystemExit(f"{name} must be an RGB array with three integers")
+    if any(not isinstance(channel, int) or not 0 <= channel <= 255 for channel in value):
+        raise SystemExit(f"{name} channels must be integers from 0 to 255")
+    return tuple(value)
+
+
+def validate_config(config, root):
+    required = {"image_pattern", "output_pattern", "font", "translations"}
+    missing = sorted(required - config.keys())
+    if missing:
+        raise SystemExit("Missing config keys: " + ", ".join(missing))
+    if "{fig}" not in config["image_pattern"] or "{fig}" not in config["output_pattern"]:
+        raise SystemExit("image_pattern and output_pattern must contain {fig}")
+    if config["image_pattern"] == config["output_pattern"]:
+        raise SystemExit("output_pattern must not overwrite the source image")
+    font_path = Path(config["font"]).expanduser()
+    if not font_path.is_absolute():
+        font_path = root / font_path
+    if not font_path.is_file():
+        raise SystemExit(f"Font not found: {font_path}")
+    config["font"] = str(font_path)
+    if not isinstance(config["translations"], dict):
+        raise SystemExit("translations must be a JSON object")
+    for source, target in config["translations"].items():
+        if not str(source).strip() or not isinstance(target, str) or not target.strip():
+            raise SystemExit(f"Invalid translation entry: {source!r}")
+    for group in config.get("groups", []):
+        if not group.get("texts") or not group.get("lines"):
+            raise SystemExit("Every group requires non-empty texts and lines arrays")
+        if not all(isinstance(value, str) and value.strip() for value in group["texts"] + group["lines"]):
+            raise SystemExit("Group texts and lines must contain non-empty strings")
+    min_font_size = config.get("min_font_size", 18)
+    max_font_size = config.get("max_font_size", 32)
+    if not all(isinstance(value, int) and value > 0 for value in (min_font_size, max_font_size)):
+        raise SystemExit("min_font_size and max_font_size must be positive integers")
+    if min_font_size > max_font_size:
+        raise SystemExit("min_font_size must not exceed max_font_size")
+    config["label_color"] = parse_color(config.get("label_color", [246, 246, 246]), "label_color")
+    config["orientation_color"] = parse_color(
+        config.get("orientation_color", [228, 217, 58]), "orientation_color"
+    )
 
 
 def is_orientation(row):
     return row["text"] in ORIENTATION_TEXTS and row["x"] > row["width"] * 0.62 and row["y"] < 170
 
 
-def font_for(font_path, h):
+def font_for(font_path, h, min_size=18, max_size=32):
     size = round(h * 0.98)
-    size = max(20, min(24, size))
+    size = max(min_size, min(max_size, size))
     return ImageFont.truetype(font_path, size)
 
 
@@ -185,7 +249,13 @@ def build_blocks(rows, config):
                 blocks.append({"box": make_box(selected), "h": max(r["h"] for r in selected), "lines": lines})
 
     translations = config["translations"]
-    missing = sorted({r["text"] for r in rows if not is_orientation(r) and r["text"] not in translations and rows.index(r) not in used})
+    missing = sorted(
+        {
+            row["text"]
+            for index, row in enumerate(rows)
+            if index not in used and not is_orientation(row) and row["text"] not in translations
+        }
+    )
     if missing:
         raise SystemExit("Missing translations: " + ", ".join(missing))
     for i, row in enumerate(rows):
@@ -204,12 +274,11 @@ def block_align(box, image_width):
     return "center"
 
 
-def draw_orientation(draw, rows, font_path, image_width):
+def draw_orientation(draw, rows, font_path, image_width, color):
     rows = [r for r in rows if is_orientation(r)]
     if not rows:
         return
     font = orientation_font_for(font_path, max(r["h"] for r in rows))
-    color = (228, 217, 58)
     x0 = min(r["x"] for r in rows)
     y0 = min(r["y"] for r in rows)
     x1 = max(r["x"] + r["w"] for r in rows)
@@ -235,7 +304,17 @@ def draw_orientation(draw, rows, font_path, image_width):
 def render_one(root, fig, rows, config):
     image_path = root / config["image_pattern"].format(fig=fig)
     out_path = root / config["output_pattern"].format(fig=fig)
+    if not image_path.is_file():
+        raise SystemExit(f"Source image not found: {image_path}")
+    if image_path.resolve() == out_path.resolve():
+        raise SystemExit(f"Refusing to overwrite source image: {image_path}")
     original = Image.open(image_path).convert("RGB")
+    declared_sizes = {(row["width"], row["height"]) for row in rows}
+    if declared_sizes != {(original.width, original.height)}:
+        raise SystemExit(
+            f"OCR dimensions do not match {image_path.name}: "
+            f"TSV={sorted(declared_sizes)}, image={(original.width, original.height)}"
+        )
     arr = np.array(original)
     mask = np.zeros(arr.shape[:2], dtype=np.uint8)
     edge_rects = []
@@ -258,26 +337,39 @@ def render_one(root, fig, rows, config):
         draw.rectangle(rect, fill=local_background(arr, *rect))
 
     label_heights = [r["h"] for r in rows if not is_orientation(r)]
-    font = font_for(config["font"], float(np.median(label_heights)))
-    for block in build_blocks(rows, config):
-        draw_text_block(
-            draw,
-            block["box"],
-            block["lines"],
-            font,
+    if label_heights:
+        font = font_for(
             config["font"],
-            (246, 246, 246),
-            image.width,
-            block_align(block["box"], image.width),
+            float(np.median(label_heights)),
+            config.get("min_font_size", 18),
+            config.get("max_font_size", 32),
         )
-    draw_orientation(draw, rows, config["font"], image.width)
+        for block in build_blocks(rows, config):
+            draw_text_block(
+                draw,
+                block["box"],
+                block["lines"],
+                font,
+                config["font"],
+                config["label_color"],
+                image.width,
+                block_align(block["box"], image.width),
+            )
+    draw_orientation(draw, rows, config["font"], image.width, config["orientation_color"])
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     image.save(out_path)
+    with Image.open(out_path) as saved:
+        if saved.size != original.size:
+            out_path.unlink(missing_ok=True)
+            raise SystemExit(f"Output dimensions changed unexpectedly: {out_path}")
     print(out_path)
 
 
 def main():
     args = parse_args()
+    load_image_dependencies()
     config = json.loads(args.config.read_text(encoding="utf-8"))
+    validate_config(config, args.root)
     rows = read_rows(args.ocr)
     for fig in sorted({r["fig"] for r in rows}, key=lambda x: (len(x), x)):
         render_one(args.root, fig, [r for r in rows if r["fig"] == fig], config)

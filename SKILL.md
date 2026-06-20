@@ -1,90 +1,87 @@
 ---
 name: medical-figure-zh-labeler
-description: Translate English labels in medical/anatomical figure images into Chinese while preserving the original image, leader lines, label-to-structure correspondence, layout, dimensions, and figure style. Use for PNG/JPG/TIFF medical atlases, anatomy and cardiology diagrams, catheter ablation figures, or requests to output independent translated images. For cardiovascular figures, apply the user-designated 2025 National Committee terminology glossary as the highest-authority naming source before local figure-label conventions.
+description: Translate English labels in medical, anatomical, cardiovascular, electrophysiology, and catheter-ablation figure images into authoritative Chinese while preserving source pixels outside text areas, canvas dimensions, leader-line geometry, label-to-structure correspondence, typography, and layout. Use for PNG, JPG, JPEG, or TIFF atlas figures; independent Chinese-edition image output; batch figure localization; or requests that cite Chinese medical textbook terminology, eponyms, transliterations, or the user-designated 2025 cardiovascular terminology standard.
 ---
 
 # Medical Figure Chinese Labeler
 
-## Goal
+Produce publication-ready Chinese figures by replacing text only. Treat anatomy, image content, leader lines, endpoints, symbols, scale bars, panel markers, and canvas geometry as locked.
 
-Replace only the English label text in medical figure images with professional Chinese labels. Preserve the original anatomy/photo content, leader-line geometry, line endpoints, canvas size, and label correspondence.
+## Non-Negotiable Constraints
 
-## Core Workflow
+- Never overwrite a source image. Write one independent output per source.
+- Keep output width and height identical to the source.
+- Do not move, shorten, extend, erase, or redraw leader lines.
+- Preserve the one-to-one relationship between every label and its anatomical target.
+- Translate every English label; do not omit short labels, abbreviations, orientation markers, or parenthetical text.
+- Prefer one line for short Chinese labels. Use multiple lines only when required to avoid overlap or preserve an explanatory parenthesis.
+- Stop and report ambiguity when the label target, source text, or authoritative term cannot be determined safely.
 
-1. **Preserve originals**
-   - Never overwrite source `*-原图.png` files.
-   - Output independent images, usually `Fig. x-中文版-翻译后.png`; optionally also write `Fig. x-中文版.png`.
-   - Verify output dimensions match the source dimensions exactly.
+## Required Workflow
 
-2. **Read reference style**
-   - If the folder contains a prior good result such as `Fig. 6.12-中文版-翻译后.png`, inspect it first.
-   - Match its label style: white medical labels, yellow orientation marker, black background cleanup, concise Chinese, and same visual hierarchy as the original.
+1. **Inventory and protect inputs**
+   - Enumerate source images and expected outputs before editing.
+   - Record source dimensions and hashes when the batch is publication-critical.
+   - Inspect the user's approved reference result first, such as `Fig. 6.12-中文版-翻译后.png`.
 
-3. **Locate English labels**
-   - Prefer OCR for coordinates, not for final terminology.
-   - On macOS, use Vision OCR via Swift for accurate label boxes and save a TSV with: `fig width height x y w h text`.
-   - Manually inspect OCR output for split labels, OCR mistakes, missing short labels, and punctuation.
+2. **Extract and reconcile labels**
+   - Use OCR to obtain candidate text and coordinates, never as final terminology authority.
+   - Inspect each figure visually for OCR omissions, split lines, superscripts, punctuation, abbreviations, and labels crossing textured anatomy.
+   - Merge OCR fragments into logical labels before translation.
+   - Build a manifest with `figure | source English | final Chinese | authority | box/group | target check`.
 
-4. **Translate medically**
-   - For cardiovascular figures, first read the installed `translate-cardiovascular-literature-zh/references/cardiovascular-terminology.md` and search its `terminology/cnterm-2025/` A0 glossary.
-   - Use local [references/terminology.md](references/terminology.md) only for figure-specific anatomy, eponyms, orientation markers, or concepts not covered by A0.
-   - If A0 conflicts with a local example or an older project translation, A0 wins unless the user later gives a specific exception.
-   - For eponyms or transliterated names, use the standard Chinese name plus English in parentheses when helpful: `巴赫曼束（Bachmann's bundle）`.
-   - Do not keep English for ordinary anatomical terms.
-   - Record each final label as `source English -> final Chinese -> authority` before rendering.
+3. **Resolve terminology**
+   - Read [references/terminology.md](references/terminology.md) for the authority hierarchy and naming rules.
+   - For cardiovascular labels, use the user-designated *Cardiovascular Terminology (2025)* source as the highest authority when available.
+   - If `translate-cardiovascular-literature-zh/references/terminology/cnterm-2025/` is installed, search it before using local examples.
+   - Use current Chinese national terminology, Chinese medical textbooks, consensus/guideline usage, then project consistency in that order.
+   - For eponyms and transliterations, retain the English original only when the reference rules call for `中文标准名（English）`.
+   - Never shorten an official term into a different concept merely to fit the label area.
 
-5. **Group label blocks**
-   - Merge OCR fragments that are one logical label before drawing:
-     - `Anterior pericardial` + `reflection` -> `前心包反折`
-     - `Right atrioventricular` + `groove` -> `右房室沟`
-     - `Anterior` + `mitral leaflet` -> `二尖瓣前瓣`
-   - Keep short Chinese labels on one line whenever they fit.
-   - Use two lines only for genuinely long explanatory labels or parenthetical terms.
+4. **Plan typography and placement**
+   - Match the approved reference's font family, weight, color, hierarchy, and spacing.
+   - Use a Chinese sans/hei font close to the source, such as Heiti SC, PingFang SC, or Noto Sans CJK.
+   - Estimate a common label size from OCR height and keep it consistent within each figure.
+   - Right-align left-side labels, left-align right-side labels, and center only labels that were originally centered.
+   - Keep orientation markers, panel letters, symbols, and color coding visually distinct.
 
-6. **Remove English text**
-   - Remove full English label boxes, not just visible glyph pixels, when following a finished-reference style.
-   - Use inpainting for interior label boxes.
-   - Use local dark-background fill near image edges to avoid white border artifacts.
-   - Do not mask or redraw leader lines unless the user explicitly asks; keep line positions and lengths unchanged.
+5. **Render conservatively**
+   - Remove the complete English glyph area with the smallest safe mask.
+   - Use inpainting for textured interiors and sampled local fill near uniform edges.
+   - Exclude leader-line pixels from cleanup masks. If a text box touches a line, use a custom mask rather than a full rectangle.
+   - Draw Chinese inside the original label zone; adjust font size and line breaks before considering any positional change.
+   - Use [scripts/render_labels_from_ocr.py](scripts/render_labels_from_ocr.py) when its rectangular-mask assumptions are safe. Patch it for irregular masks or figure-specific grouping.
 
-7. **Draw Chinese text**
-   - Use a Chinese sans/hei font close to the original English style, such as `Heiti SC`, `PingFang SC`, or `Noto Sans CJK`.
-   - Keep ordinary label font size visually close to the original English labels; compute a common size from OCR text height and use it consistently within a figure.
-   - Keep the yellow orientation marker separate and visually close to the original marker.
-   - Align labels by side:
-     - Left-side labels: right-align to the original label box so they stay near their leader lines.
-     - Right-side labels: left-align to the original label box.
-     - Central/bottom labels: center only when that matches the original placement.
+6. **Verify every output**
+   - Compare source and output dimensions programmatically.
+   - Compare non-text regions and line endpoints at high zoom; any shifted line is a failure.
+   - Check the manifest against the rendered figure label by label.
+   - Confirm no English residue, missing labels, mistranslations, overlaps, clipping, unnecessary line breaks, or altered anatomy.
+   - Generate a contact sheet for batch consistency, then inspect the densest figures at full resolution.
+   - Re-run terminology review after layout changes so typography decisions never silently alter meaning.
 
-8. **Verify**
-   - Generate a contact sheet for all outputs.
-   - Inspect at least the densest figures at full resolution.
-   - Check: no English residue, no missing labels, no wrong terminology, no unnecessary two-line short labels, no label overlap, no shifted leader lines, and identical dimensions.
-   - Recheck every cardiovascular label against A0; do not let layout convenience silently change the official term.
+## Script Inputs
 
-## Reusable Script
-
-Use `scripts/render_labels_from_ocr.py` as a starting point when a task has OCR TSV and a translation JSON. It implements the important mechanics from this workflow:
-
-- full English box cleanup with hybrid inpaint/local background fill
-- logical label grouping
-- side-aware alignment
-- consistent font sizing close to original text
-- independent output files
-- same-dimension verification
-
-Patch the script per task instead of rewriting the whole rendering pipeline.
-
-## OCR TSV Pattern
-
-Use this TSV schema:
+Use an OCR TSV with exactly eight tab-separated fields:
 
 ```text
 fig<TAB>width<TAB>height<TAB>x<TAB>y<TAB>w<TAB>h<TAB>text
 ```
 
-For a single image batch, `fig` can be a file stem instead of a number if the script is adjusted accordingly.
+Use a JSON config containing at least:
 
-## Quality Bar
+```json
+{
+  "image_pattern": "Fig. 6.{fig}-原图.png",
+  "output_pattern": "Fig. 6.{fig}-中文版-翻译后.png",
+  "font": "/System/Library/Fonts/STHeiti Medium.ttc",
+  "translations": {"Aortic arch": "主动脉弓"},
+  "groups": [{"texts": ["Anterior", "mitral leaflet"], "lines": ["二尖瓣前瓣"]}]
+}
+```
 
-The final image should look like a native Chinese edition of the original atlas figure: the anatomy/photo and leader lines stay fixed, the Chinese labels read professionally, and the typography feels intentionally matched rather than pasted on.
+Optional keys include `min_font_size`, `max_font_size`, `label_color`, and `orientation_color`. The script rejects malformed rows, missing translations, missing files/fonts, source overwrite, OCR dimension mismatch, and changed output dimensions.
+
+## Acceptance Standard
+
+The result must look like a native Chinese edition of the same figure: authoritative terminology, complete label coverage, intentional typography, unchanged anatomy and leader lines, exact label correspondence, and identical dimensions. Automated checks support this judgment but never replace full-resolution medical and visual review.

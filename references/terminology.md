@@ -1,19 +1,35 @@
-# Terminology Guide
+# Medical Figure Terminology Guide
 
 Use Chinese medical textbook/anatomy terms. Keep labels concise unless the original label contains an explanatory parenthesis.
 
-## Authority
+## Authority Hierarchy
 
-For cardiovascular labels, this file is a layout-oriented supplement, not the primary naming authority.
+For cardiovascular labels, this file is a figure-localization supplement, not the primary naming authority. Apply the first available source in this order:
 
-1. Search `translate-cardiovascular-literature-zh/references/terminology/cnterm-2025/` first.
-2. A matching 2025 A0 term overrides examples in this file and older project translations.
-3. Use this file for eponyms, detailed cardiac anatomy, orientation markers, and labels absent from A0.
-4. Do not shorten an A0 term into a different medical concept merely to fit the image. Adjust typography or move the English explanation to the figure legend instead.
+1. Explicit terminology source or exception designated by the user for the current project.
+2. User-designated *Cardiovascular Terminology (2025)* source; when installed, search `translate-cardiovascular-literature-zh/references/terminology/cnterm-2025/`.
+3. Current terminology published by China's national scientific and technical terminology authority.
+4. Current Chinese medical textbooks, professional guidelines, and expert consensus documents.
+5. Stable usage in the same book, chapter, or approved reference figure.
+6. Examples in this file.
+
+A matching higher-level term overrides lower-level examples and older project translations. Record the selected authority in the label manifest. If two same-level sources conflict or the source label is anatomically ambiguous, stop and request expert adjudication instead of guessing.
+
+Do not shorten an official term into a different medical concept merely to fit the image. Adjust typography, use a justified line break, or move a nonessential English explanation to the legend only when the user permits it.
+
+## Translation Rules
+
+- Preserve anatomical specificity, laterality, chamber, segment, leaflet/cusp, vessel, view, and directional qualifiers.
+- Translate ordinary anatomical terms fully into Chinese; do not add English for decoration.
+- Keep established abbreviations only when the source figure or Chinese clinical convention requires them. Define unfamiliar abbreviations in the legend rather than expanding them into the label area.
+- Distinguish literal anatomy from electrophysiology concepts, procedural landmarks, imaging signs, devices, and commercial names.
+- Use full-width Chinese parentheses for retained English: `中文标准名（English original）`.
+- Keep punctuation, capitalization, and apostrophes inside retained English names faithful to the source.
+- Prefer concise textbook labels, but never trade away medical meaning for visual fit.
 
 ## Eponyms And Transliterations
 
-Use Chinese standard names with English in parentheses when the term is eponymic, transliterated, or commonly recognized by English name:
+Use the authoritative Chinese standard name. Retain English in parentheses when the term is eponymic or transliterated and the English form materially aids recognition:
 
 - `Bachmann's bundle` -> `巴赫曼束（Bachmann's bundle）`
 - `Tendon of Todaro` -> `托达罗腱（Tendon of Todaro）`
@@ -22,6 +38,8 @@ Use Chinese standard names with English in parentheses when the term is eponymic
 - `Warfarin ridge` -> `华法林嵴（Warfarin ridge）`
 
 Do not append English to ordinary anatomical labels such as `superior vena cava`, `transverse sinus`, or `left ventricle`.
+
+For a dense figure, omit the parenthetical English only when the authoritative Chinese name is unambiguous and the user has not required bilingual retention. Apply the decision consistently throughout the figure or chapter.
 
 ## Cardiovascular Examples
 

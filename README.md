@@ -1,35 +1,21 @@
 # Medical Figure Chinese Labeler
 
-一个用于医学与解剖图谱中文本地化的 Codex Skill：将图中的英文标注翻译为规范中文，同时保持原始图像内容、画布尺寸、引线位置、标注对应关系、版式和字体风格。
+面向医学图谱出版与教学场景的 Codex Skill。它将图中英文标注翻译为权威、自然的中文，同时冻结解剖内容、画布尺寸、引线几何和标签对应关系。
+
+## 核心特色
+
+- **术语有裁决层级**：心血管标签优先采用用户指定的《心血管病学名词（2025）》；其后依次参考国家规范、权威教材、指南/共识和项目既有译法。
+- **标签可追溯**：建议先建立“英文原文 -> 中文定稿 -> 权威来源 -> 坐标/分组 -> 指向核对”清单，再进入渲染。
+- **几何冻结**：不移动、缩短、延长或重画引线，不改变端点和解剖结构。
+- **版式本地化**：短中文尽量单行，统一字号、字重、颜色和左右对齐方式，保持原图视觉层级。
+- **双重验收**：自动检查尺寸、输入、缺译和覆盖风险，再进行逐标签医学复核与全分辨率视觉检查。
 
 ## 适用场景
 
-- 心血管、心脏电生理与导管消融图谱
-- 解剖学教材和医学专著插图
-- PNG、JPG、TIFF 等医学图片中的英文标注替换
-- 需要批量输出独立中文版图片的出版流程
-
-## 核心能力
-
-- 以 OCR 获取坐标，但由人工医学术语规则决定最终译名
-- 合并被 OCR 拆分的多行标签，短中文优先保持单行
-- 使用中国医学教材常用术语；音译或人名术语可保留“中文名（英文）”
-- 仅替换文字，不移动或缩短引线，不改变解剖结构和原图尺寸
-- 根据标签左右位置自动对齐，尽量匹配原图字号与字体风格
-- 支持批量渲染、同尺寸校验和成品总览检查
-
-## 目录结构
-
-```text
-medical-figure-zh-labeler/
-├── SKILL.md
-├── agents/
-│   └── openai.yaml
-├── references/
-│   └── terminology.md
-└── scripts/
-    └── render_labels_from_ocr.py
-```
+- 心血管解剖、心脏电生理、导管消融和影像学图谱
+- 医学教材、专著、论文和继续教育材料中的图像本地化
+- PNG、JPG、JPEG、TIFF 图像的单图或批量中文化
+- 要求输出独立中文版图片且严格保持引线对应关系的任务
 
 ## 安装
 
@@ -38,28 +24,21 @@ git clone https://github.com/lcj-xiaoluobo/medical-figure-zh-labeler.git \
   ~/.codex/skills/medical-figure-zh-labeler
 ```
 
-重新启动 Codex 或开启新会话后，即可使用 `medical-figure-zh-labeler` Skill。
-
-## Python 依赖
+重新启动 Codex 或开启新会话后使用。Python 渲染脚本需要：
 
 ```bash
-pip install pillow numpy opencv-python
+python -m pip install pillow numpy opencv-python
 ```
 
-macOS 可优先使用系统中文黑体，例如：
+## 推荐流程
 
-```text
-/System/Library/Fonts/STHeiti Medium.ttc
-```
-
-## 使用流程
-
-1. 保留并备份原图，禁止覆盖 `*-原图.png`。
-2. 参考同一项目中已完成的中文版图片，确定字号、颜色和布局风格。
-3. OCR 提取英文标签及坐标，人工检查漏字、断行和错误识别。
-4. 按中国医学教材规范翻译，并合并同一标签的 OCR 片段。
-5. 清理英文文本区域，在原位置绘制中文，不修改任何标注引线。
-6. 输出独立图片，并检查尺寸、术语、残留英文、遮挡和对应关系。
+1. 枚举原图和预期输出，禁止覆盖 `*-原图.*`。
+2. 检查用户认可的中文版参考图，确定字体、颜色、字号和布局基准。
+3. OCR 提取文本与坐标，人工补齐漏标并合并被拆开的标签。
+4. 按权威层级定稿术语，建立可追溯标签清单。
+5. 在不触碰引线的前提下清除英文并于原位置绘制中文。
+6. 自动核验尺寸和缺译，再逐图检查术语、残留、遮挡、断行及一一对应关系。
+7. 批量生成总览图，并对标签最密集的图片进行全分辨率终审。
 
 ## 渲染脚本
 
@@ -70,29 +49,34 @@ python scripts/render_labels_from_ocr.py \
   --root /path/to/figures
 ```
 
-OCR TSV 基本格式：
+OCR TSV 每行必须包含 8 个制表符分隔字段：
 
 ```text
 fig<TAB>width<TAB>height<TAB>x<TAB>y<TAB>w<TAB>h<TAB>text
 ```
 
-具体配置字段和运行方式可执行：
+最小配置示例：
 
-```bash
-python scripts/render_labels_from_ocr.py --help
+```json
+{
+  "image_pattern": "Fig. 6.{fig}-原图.png",
+  "output_pattern": "Fig. 6.{fig}-中文版-翻译后.png",
+  "font": "/System/Library/Fonts/STHeiti Medium.ttc",
+  "translations": {"Aortic arch": "主动脉弓"},
+  "groups": [{"texts": ["Anterior", "mitral leaflet"], "lines": ["二尖瓣前瓣"]}]
+}
 ```
 
-## 医学术语原则
+脚本会拒绝格式错误、缺少译文、字体或原图缺失、OCR 尺寸不符、覆盖原图和输出尺寸变化。矩形文字框与引线相交时，不应直接套用默认遮罩，应为该图定制不触线的掩膜。
 
-- 普通解剖名词使用标准中文，不无故保留英文。
-- 人名、音译名或临床常用英文名称可采用“中文标准名（英文原名）”。
-- 标签应准确、简洁，并与原图指向结构一一对应。
-- 心血管常用译名见 [`references/terminology.md`](references/terminology.md)。
+## 仓库结构
 
-## 成品质量标准
+```text
+medical-figure-zh-labeler/
+├── SKILL.md
+├── agents/openai.yaml
+├── references/terminology.md
+└── scripts/render_labels_from_ocr.py
+```
 
-成品应像原版图谱的正式中文版：医学结构和引线保持不变，中文术语规范，无英文残留、漏标、错位、遮挡或不必要的断行，输出尺寸与原图完全一致。
-
-## 使用说明
-
-本仓库提供工作流程与辅助脚本。处理第三方医学图片时，请确认拥有相应的编辑、翻译与发布权限，并对最终医学术语进行专业复核。
+处理第三方医学图片前，请确认拥有相应的编辑、翻译和发布权限。自动化不能替代医学专业人员对最终术语和指向关系的复核。
