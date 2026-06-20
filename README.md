@@ -34,7 +34,7 @@ medical-figure-zh-labeler/
 ## 安装
 
 ```bash
-git clone https://github.com/blueheartone-two-three/medical-figure-zh-labeler.git \
+git clone https://github.com/lcj-xiaoluobo/medical-figure-zh-labeler.git \
   ~/.codex/skills/medical-figure-zh-labeler
 ```
 
@@ -96,4 +96,3 @@ python scripts/render_labels_from_ocr.py --help
 ## 使用说明
 
 本仓库提供工作流程与辅助脚本。处理第三方医学图片时，请确认拥有相应的编辑、翻译与发布权限，并对最终医学术语进行专业复核。
-
