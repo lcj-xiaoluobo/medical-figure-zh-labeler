@@ -2,6 +2,15 @@
 
 Use Chinese medical textbook/anatomy terms. Keep labels concise unless the original label contains an explanatory parenthesis.
 
+## Authority
+
+For cardiovascular labels, this file is a layout-oriented supplement, not the primary naming authority.
+
+1. Search `translate-cardiovascular-literature-zh/references/terminology/cnterm-2025/` first.
+2. A matching 2025 A0 term overrides examples in this file and older project translations.
+3. Use this file for eponyms, detailed cardiac anatomy, orientation markers, and labels absent from A0.
+4. Do not shorten an A0 term into a different medical concept merely to fit the image. Adjust typography or move the English explanation to the figure legend instead.
+
 ## Eponyms And Transliterations
 
 Use Chinese standard names with English in parentheses when the term is eponymic, transliterated, or commonly recognized by English name:

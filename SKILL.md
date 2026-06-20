@@ -1,6 +1,6 @@
 ---
 name: medical-figure-zh-labeler
-description: Translate English labels in medical/anatomical figure images into Chinese while preserving the original image, leader lines, label-to-structure correspondence, layout, dimensions, and figure style. Use when processing PNG/JPG/TIFF medical atlas figures, anatomy/cardiology diagrams, catheter ablation book figures, or any request to replace English figure labels with professional Chinese medical terminology and output independent translated images.
+description: Translate English labels in medical/anatomical figure images into Chinese while preserving the original image, leader lines, label-to-structure correspondence, layout, dimensions, and figure style. Use for PNG/JPG/TIFF medical atlases, anatomy and cardiology diagrams, catheter ablation figures, or requests to output independent translated images. For cardiovascular figures, apply the user-designated 2025 National Committee terminology glossary as the highest-authority naming source before local figure-label conventions.
 ---
 
 # Medical Figure Chinese Labeler
@@ -26,10 +26,12 @@ Replace only the English label text in medical figure images with professional C
    - Manually inspect OCR output for split labels, OCR mistakes, missing short labels, and punctuation.
 
 4. **Translate medically**
-   - Use Chinese medical textbook/anatomy terminology.
+   - For cardiovascular figures, first read the installed `translate-cardiovascular-literature-zh/references/cardiovascular-terminology.md` and search its `terminology/cnterm-2025/` A0 glossary.
+   - Use local [references/terminology.md](references/terminology.md) only for figure-specific anatomy, eponyms, orientation markers, or concepts not covered by A0.
+   - If A0 conflicts with a local example or an older project translation, A0 wins unless the user later gives a specific exception.
    - For eponyms or transliterated names, use the standard Chinese name plus English in parentheses when helpful: `巴赫曼束（Bachmann's bundle）`.
    - Do not keep English for ordinary anatomical terms.
-   - Read [references/terminology.md](references/terminology.md) when translating cardiovascular/anatomical terms.
+   - Record each final label as `source English -> final Chinese -> authority` before rendering.
 
 5. **Group label blocks**
    - Merge OCR fragments that are one logical label before drawing:
@@ -58,6 +60,7 @@ Replace only the English label text in medical figure images with professional C
    - Generate a contact sheet for all outputs.
    - Inspect at least the densest figures at full resolution.
    - Check: no English residue, no missing labels, no wrong terminology, no unnecessary two-line short labels, no label overlap, no shifted leader lines, and identical dimensions.
+   - Recheck every cardiovascular label against A0; do not let layout convenience silently change the official term.
 
 ## Reusable Script
 
